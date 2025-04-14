@@ -1,0 +1,55 @@
+name: 'Push to JFrog Artifactory'
+description: 'A GitHub Action that setup JFrog Artifactory and pushes artifacts'
+author: 'George Nana Ekow-Daniels'
+branding:
+  icon: 'package'
+  color: 'blue'
+
+inputs:
+  file_publish_path:
+    description: 'Relative path to the packages'
+    required: true
+  target:
+    description: 'Target path in Artifactory'
+    required: true
+  artifactory_url:
+    description: 'Artifactory URL'
+    required: true
+  artifactory_token:
+    description: 'Artifactory Token'
+    required: true
+    mask: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up JFrog CLI
+      uses: jfrog/setup-jfrog-cli@f748a0599171a192a2668afee8d0497f7c1069df
+
+    - name: Create a Spec file
+      shell: bash
+      env:
+        PATTERN: ${{inputs.file_publish_path}}
+        TARGET_PATH: ${{inputs.target}}
+      run: |
+        echo "Creating upload spec file..."
+        echo '{
+          "files": [
+            {
+              "pattern": "'"$PATTERN"'",
+              "target": "'"$TARGET_PATH"'"
+            }
+          ]
+        }' > upload_spec.json
+        echo "Generated spec file:"
+        cat upload_spec.json
+
+    - name: Publish Dotnet to JFrog Artifactory
+      shell: bash
+      env:
+        ARTIFACTORY_URL: ${{ inputs.artifactory_url }}
+        ARTIFACTORY_TOKEN: ${{ inputs.artifactory_token }}
+      run: |
+        set -e
+        echo "Uploading artifacts to $TARGET_PATH"
+        jf rt u --spec=upload_spec.json --url="$ARTIFACTORY_URL" --access-token="$ARTIFACTORY_TOKEN"
